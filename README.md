@@ -1,2 +1,2 @@
 # GPGPU
-Parellel Programming using CUDA
+Parallel Programming using CUDA
