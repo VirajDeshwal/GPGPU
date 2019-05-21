@@ -1,20 +1,60 @@
 #include <stdio.h>
 
-/*
-CUDA provides a special variable giving the number of blocks 
-in a grid, gridDim.x. Calculating the total number of 
-threads in a grid then is simply the number of blocks in a grid multiplied by 
-the number of threads in each block, gridDim.x * blockDim.x. 
-*/
-
-__global__ void kernel(int *a, int N)
+void init(int *a, int N)
 {
-    int indexWithinGrid = threadIdx.x + blockIdx.x * blockDim.x;
+  int i;
+  for (i = 0; i < N; ++i)
+  {
+    a[i] = i;
+  }
+}
 
-    int gridStride = gridDim.x * blockDim.x;
+__global__
+void doubleElements(int *a, int N)
+{
 
-    for(int i = indexWithinGrid; i< N; i += gridStride)
-    {
-        //do work on a[i];
-    }
+  /*
+   * Use a grid-stride loop so each thread does work
+   * on more than one element in the array.
+   */
+
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int stride = gridDim.x * blockDim.x;
+
+  for (int i = idx; i < N; i += stride)
+  {
+    a[i] *= 2;
+  }
+}
+
+bool checkElementsAreDoubled(int *a, int N)
+{
+  int i;
+  for (i = 0; i < N; ++i)
+  {
+    if (a[i] != i*2) return false;
+  }
+  return true;
+}
+
+int main()
+{
+  int N = 10000;
+  int *a;
+
+  size_t size = N * sizeof(int);
+  cudaMallocManaged(&a, size);
+
+  init(a, N);
+
+  size_t threads_per_block = 256;
+  size_t number_of_blocks = 32;
+
+  doubleElements<<<number_of_blocks, threads_per_block>>>(a, N);
+  cudaDeviceSynchronize();
+
+  bool areDoubled = checkElementsAreDoubled(a, N);
+  printf("All elements were doubled? %s\n", areDoubled ? "TRUE" : "FALSE");
+
+  cudaFree(a);
 }
